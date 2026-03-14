@@ -22,6 +22,13 @@ export default function App() {
   const loadFromSupabase = useStore((s) => s.loadFromSupabase)
 
   useEffect(() => {
+    if (!supabase) {
+      // No Supabase credentials — skip auth, use local-only mode
+      setUserId(null)
+      setAuthLoading(false)
+      return
+    }
+
     // Check for an existing Supabase session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -54,7 +61,7 @@ export default function App() {
     )
   }
 
-  if (!userId) {
+  if (!userId && supabase) {
     return <AuthView />
   }
 

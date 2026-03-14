@@ -145,7 +145,7 @@ export const useStore = create<AppState>()(
       },
 
       signOut: async () => {
-        await supabase.auth.signOut()
+        await supabase?.auth.signOut()
         set({ userId: null })
       },
 

@@ -20,7 +20,7 @@ export function AuthView() {
     setLoading(true)
 
     if (mode === 'signin') {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase!.auth.signInWithPassword({ email, password })
       if (authError) {
         setError(authError.message)
         setLoading(false)
@@ -31,7 +31,7 @@ export function AuthView() {
         await loadFromSupabase(data.user.id)
       }
     } else {
-      const { data, error: authError } = await supabase.auth.signUp({ email, password })
+      const { data, error: authError } = await supabase!.auth.signUp({ email, password })
       if (authError) {
         setError(authError.message)
         setLoading(false)
