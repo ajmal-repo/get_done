@@ -1,10 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, RecurringConfig } from '@/types'
 
-export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL as string,
-  import.meta.env.VITE_SUPABASE_KEY as string
-)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY as string | undefined
+
+export const supabase: SupabaseClient | null =
+  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
 // ── DB row type (loose — Supabase returns plain objects) ─────────────────
 type DbRow = Record<string, unknown>
@@ -132,6 +133,8 @@ export function habitFromDb(row: DbRow): Habit {
 // ── Load all user data from Supabase ─────────────────────────────────────
 
 export async function loadAllUserData(userId: string) {
+  if (!supabase) return { tasks: [], projects: [], labels: [], habits: [], pomodoroSettings: null }
+
   const [tasksRes, projectsRes, labelsRes, habitsRes, pomRes] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', userId).order('order'),
     supabase.from('projects').select('*').eq('user_id', userId).order('order'),
@@ -164,39 +167,39 @@ export async function loadAllUserData(userId: string) {
 // ── Upsert / Delete operations (fire-and-forget from store) ──────────────
 
 export function syncTask(task: Task, userId: string) {
-  supabase.from('tasks').upsert(taskToDb(task, userId)).then(() => {})
+  supabase?.from('tasks').upsert(taskToDb(task, userId)).then(() => {})
 }
 
 export function syncDeleteTask(id: string) {
-  supabase.from('tasks').delete().eq('id', id).then(() => {})
+  supabase?.from('tasks').delete().eq('id', id).then(() => {})
 }
 
 export function syncProject(project: Project, userId: string) {
-  supabase.from('projects').upsert(projectToDb(project, userId)).then(() => {})
+  supabase?.from('projects').upsert(projectToDb(project, userId)).then(() => {})
 }
 
 export function syncDeleteProject(id: string) {
-  supabase.from('projects').delete().eq('id', id).then(() => {})
+  supabase?.from('projects').delete().eq('id', id).then(() => {})
 }
 
 export function syncLabel(label: Label, userId: string) {
-  supabase.from('labels').upsert(labelToDb(label, userId)).then(() => {})
+  supabase?.from('labels').upsert(labelToDb(label, userId)).then(() => {})
 }
 
 export function syncDeleteLabel(id: string) {
-  supabase.from('labels').delete().eq('id', id).then(() => {})
+  supabase?.from('labels').delete().eq('id', id).then(() => {})
 }
 
 export function syncHabit(habit: Habit, userId: string) {
-  supabase.from('habits').upsert(habitToDb(habit, userId)).then(() => {})
+  supabase?.from('habits').upsert(habitToDb(habit, userId)).then(() => {})
 }
 
 export function syncDeleteHabit(id: string) {
-  supabase.from('habits').delete().eq('id', id).then(() => {})
+  supabase?.from('habits').delete().eq('id', id).then(() => {})
 }
 
 export function syncPomodoroSettings(settings: PomodoroSettings, userId: string) {
-  supabase.from('pomodoro_settings').upsert({
+  supabase?.from('pomodoro_settings').upsert({
     user_id: userId,
     work_duration: settings.workDuration,
     short_break_duration: settings.shortBreakDuration,
@@ -218,6 +221,8 @@ export async function migrateLocalDataToSupabase(
   pomodoroSettings: PomodoroSettings,
   userId: string
 ) {
+  if (!supabase) return
+
   const ops: PromiseLike<unknown>[] = []
 
   if (projects.length > 0) {

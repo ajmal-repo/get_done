@@ -411,7 +411,7 @@ interface AppState {
 - `partialize` in persist config excludes `userId` and `isAuthLoading` from localStorage
 
 **New files:**
-- `src/lib/supabase.ts` — Supabase client, type converters (camelCase ↔ snake_case), sync helpers
+- `src/lib/supabase.ts` — Supabase client (nullable — `null` when env vars missing), type converters (camelCase ↔ snake_case), sync helpers
 - `src/components/AuthView.tsx` — Email/password sign-in / sign-up screen
 
 ---
@@ -873,6 +873,7 @@ switch (currentView) {
 | C1 | **LabelView missing** — `setView('label')` is called in Sidebar but no `<LabelView>` exists. App falls to default (TodayView) silently but clicking a label does nothing useful. | `App.tsx`, `Sidebar.tsx` | Clicking label nav item = broken |
 | C2 | **No error boundaries** — Any unhandled JS error crashes entire app with white screen | All files | Crash with no recovery |
 | C3 | **No localStorage error handling** — If localStorage is full or disabled, app crashes silently | `useStore.ts` | Data loss |
+| ~~C4~~ | ~~**Supabase crash without .env** — `createClient` throws "supabaseUrl is required" when env vars missing~~ | `supabase.ts` | ✅ Fixed — client is now nullable; app runs in local-only mode when env vars are absent |
 
 ### 🟡 Medium (Feature Gaps / Incorrect Behavior)
 
