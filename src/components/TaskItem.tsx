@@ -125,17 +125,12 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
         {/* 3-dot menu button */}
         <div className="relative" ref={menuRef}>
           <button
-<<<<<<< HEAD
-            onClick={() => setEditing(true)}
-            className="p-1.5 text-surface-400 hover:text-surface-50 rounded transition-colors"
-=======
             onClick={(e) => {
               e.stopPropagation()
               setShowMenu(!showMenu)
               setShowMoveMenu(false)
             }}
             className="p-1.5 text-surface-500 hover:text-white rounded transition-colors"
->>>>>>> 5991ac7 (v1.1.0: TaskItem popup menu, TaskEditor enhancements, mobile theme fix)
           >
             <MoreVertical size={16} />
           </button>

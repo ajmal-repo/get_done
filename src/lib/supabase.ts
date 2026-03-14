@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, RecurringConfig } from '@/types'
+import type { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, RecurringConfig, Attachment, Reminder } from '@/types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY as string | undefined
@@ -31,6 +31,9 @@ export function taskToDb(task: Task, userId: string) {
     recurring: task.recurring,
     quadrant: task.quadrant,
     gtd_context: task.gtdContext,
+    attachments: task.attachments,
+    reminder: task.reminder,
+    assignee: task.assignee,
   }
 }
 
@@ -52,6 +55,9 @@ export function taskFromDb(row: DbRow): Task {
     recurring: row.recurring as RecurringConfig | null,
     quadrant: row.quadrant as Quadrant | null,
     gtdContext: row.gtd_context as GtdContext | null,
+    attachments: (row.attachments as Attachment[]) || [],
+    reminder: row.reminder as Reminder | null,
+    assignee: row.assignee as string | null,
   }
 }
 

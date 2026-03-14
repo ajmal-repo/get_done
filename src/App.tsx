@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import type { ThemeMode } from '@/types'
+import type { Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { Layout } from '@/components/Layout'
 import { AuthView } from '@/components/AuthView'
 import { TodayView } from '@/views/TodayView'
@@ -59,7 +60,7 @@ export default function App() {
     }
 
     // Check for an existing Supabase session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
         loadFromSupabase(session.user.id)
       } else {
@@ -69,7 +70,7 @@ export default function App() {
     })
 
     // Keep userId in sync when auth state changes (e.g. token refresh, sign-out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       if (!session?.user) {
         setUserId(null)
         setAuthLoading(false)
