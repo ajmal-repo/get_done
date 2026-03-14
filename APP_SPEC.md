@@ -40,8 +40,9 @@ Do not change anything not explicitly requested.
 11. [Known Bugs & Issues](#11-known-bugs--issues)
 12. [Prioritized Improvements Roadmap](#12-prioritized-improvements-roadmap)
 13. [AI Agent Rules & Constraints](#13-ai-agent-rules--constraints)
-14. [Git & Repository](#14-git--repository)
-15. [Change Log](#15-change-log)
+14. [Agent Task Workflow & To-Do Checklist](#14-agent-task-workflow--to-do-checklist)
+15. [Git & Repository](#15-git--repository)
+16. [Change Log](#16-change-log)
 
 ---
 
@@ -1036,7 +1037,111 @@ switch (currentView) {
 
 ---
 
-## 14. GIT & REPOSITORY
+## 14. AGENT TASK WORKFLOW & TO-DO CHECKLIST
+
+> ⚠️ **MANDATORY FOR EVERY AI AGENT SESSION**
+> Follow this workflow on every task — no exceptions.
+
+---
+
+### Step 1 — Before Starting Any Task
+
+Before writing a single line of code, the agent MUST:
+
+1. Read `APP_SPEC.md` completely.
+2. Understand what already exists (read relevant files first).
+3. Create a to-do list (use `TodoWrite`) listing every step needed to complete the task.
+
+---
+
+### Step 2 — While Working
+
+- Mark each to-do item as **completed** immediately after finishing it — do not batch.
+- If a step changes the plan, update the to-do list before continuing.
+- Never skip a to-do item; if it becomes irrelevant, mark it cancelled and explain why.
+
+---
+
+### Step 3 — Mandatory End-of-Task Checklist
+
+After the main work is done, the agent MUST go through the following checklist **in order**, marking each item complete before moving to the next:
+
+```
+[ ] 1. All requested code changes implemented and verified
+[ ] 2. APP_SPEC.md updated (change log, relevant sections, version bump)
+[ ] 3. SQL schemas provided (see §14 SQL Schema Output Requirement below)
+[ ] 4. Files staged:  git add <changed files only — never git add -A blindly>
+[ ] 5. Committed:     git commit -m "..." (with Co-Authored-By footer)
+[ ] 6. Pushed:        git push origin main   →  https://github.com/ajmal-repo/get_done
+[ ] 7. Confirm push succeeded (no errors)
+[ ] 8. Report completion to the user (see §14 Customer Report Format below)
+```
+
+> ⚠️ **CRITICAL — Git Push Rule:**
+> The only allowed branch is `main`. Never push to any other branch.
+> Exact command every time:
+> ```
+> git push origin main
+> ```
+> Remote URL: `https://github.com/ajmal-repo/get_done`
+
+---
+
+### Step 4 — SQL Schema Output Requirement
+
+Whenever a task involves ANY Supabase change (new table, new column, new policy, new index, new function), the agent MUST output the full SQL as a **copyable code block** before reporting completion. The user will manually run this in the Supabase SQL Editor.
+
+Format:
+
+```sql
+-- ============================================================
+-- Task: <short description of what this SQL does>
+-- Run in: Supabase SQL Editor → https://supabase.com/dashboard
+-- ============================================================
+
+-- Example:
+ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT 'none';
+
+CREATE POLICY "Users can view own tasks"
+  ON tasks FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+Rules for SQL output:
+- Always include a comment header describing what the SQL does.
+- Group CREATE TABLE, ALTER TABLE, CREATE POLICY, and CREATE INDEX separately with comments.
+- Never assume the user has already run previous SQL — be explicit about dependencies.
+- If no Supabase changes were made, write: *No Supabase schema changes required for this task.*
+
+---
+
+### Step 5 — Customer Report Format
+
+After pushing to GitHub and providing SQL (if needed), the agent MUST post a completion report to the user in this format:
+
+```
+## Task Complete
+
+**What was done:**
+- <bullet: change 1>
+- <bullet: change 2>
+
+**Files changed:**
+- `path/to/file.tsx` — <what changed>
+
+**Git:**
+- Committed: "<commit message>"
+- Pushed to: main → https://github.com/ajmal-repo/get_done
+
+**Supabase SQL Required:** Yes / No
+(If yes — SQL block is above)
+
+**APP_SPEC.md:** Updated (§X, §Y, Change Log)
+```
+
+---
+
+## 15. GIT & REPOSITORY
 
 ### Repository Details
 
@@ -1068,7 +1173,7 @@ git push origin main      ← always push to main
 
 ---
 
-## 15. CHANGE LOG
+## 16. CHANGE LOG
 
 All changes to the application must be recorded here.
 
@@ -1077,6 +1182,7 @@ All changes to the application must be recorded here.
 | 2026-03-14 | 1.0.0 | Initial Analysis | APP_SPEC.md created. Full codebase analysis documented. All types, store, components, views, bugs, and roadmap captured. |
 | 2026-03-14 | 1.1.0 | AI Agent | Changed primary color from red (`#dc4c3e`) to purple (`#800080`) in `tailwind.config.js`. Updated §1 and §10 to reflect new color. Added full Supabase schema design to §6 (6 tables, RLS policies, indexes, column mapping, data-safety rules). Updated §12 Phase 5 roadmap with implementation steps. No backend code implemented — awaiting user-provided Supabase credentials. |
 | 2026-03-14 | 1.2.0 | AI Agent | Implemented Supabase cloud sync. Installed `@supabase/supabase-js@^2.99.1`. Created `src/lib/supabase.ts` (client, camelCase↔snake_case converters, fire-and-forget sync helpers, bulk migration). Created `src/components/AuthView.tsx` (email/password sign-in/sign-up). Updated `src/store/useStore.ts`: added `userId`, `isAuthLoading`, `setUserId`, `setAuthLoading`, `loadFromSupabase`, `signOut`; all CRUD actions now sync to Supabase; `partialize` excludes auth state from localStorage. Updated `src/App.tsx`: auth gate (loading spinner → AuthView → main app), session check on mount, `onAuthStateChange` listener. Updated `vite.config.ts` PWA `theme_color` to `#800080`. Created `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (gitignored). Updated §2, §6 to reflect new status. |
+| 2026-03-14 | 1.3.0 | AI Agent | Added §14 Agent Task Workflow & To-Do Checklist. Defines mandatory to-do list creation, step-by-step end-of-task checklist (git push to main, SQL schema output, customer report format). Renumbered §14→§15 (Git) and §15→§16 (Change Log). Updated TOC accordingly. No code changes — spec-only update. |
 
 ---
 
