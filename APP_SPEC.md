@@ -65,7 +65,7 @@ A unified productivity hub combining:
 
 ### Design Philosophy
 - Dark theme always on (no light mode toggle)
-- Red primary color (`#dc4c3e`) — action-forward design
+- Purple primary color (`#800080`) — action-forward design
 - Surface dark palette (`#171717` to `#fafafa`)
 - Minimal UI — no clutter, task-first
 - Mobile-first responsive layout
@@ -84,6 +84,7 @@ A unified productivity hub combining:
 | date-fns | ^4.1.0 | ✅ Active | Date formatting, parsing, calculations |
 | lucide-react | ^0.460.0 | ✅ Active | Icon library |
 | uuid | ^11.0.3 | ✅ Active | Generate unique IDs (v4) |
+| @supabase/supabase-js | ^2.99.1 | ✅ Active | Cloud database + Auth (cross-device sync) |
 | react-router-dom | ^6.28.0 | ⚠️ UNUSED | Installed but never imported — candidate for removal |
 | framer-motion | ^11.11.0 | ⚠️ UNUSED | Installed but never imported — CSS animations used instead |
 
@@ -323,6 +324,10 @@ interface AppState {
   // Feature settings
   pomodoroSettings: PomodoroSettings
 
+  // Auth state (not persisted to localStorage)
+  userId: string | null          // Supabase user ID; null = not signed in
+  isAuthLoading: boolean         // true while checking session / loading data
+
   // Actions (functions — not persisted)
   addTask, updateTask, deleteTask, toggleTask, reorderTask
   addProject, updateProject, deleteProject
@@ -330,6 +335,8 @@ interface AppState {
   addHabit, updateHabit, deleteHabit, toggleHabitCompletion
   setView, toggleSidebar, setSearchQuery, setShowCompleted
   updatePomodoroSettings
+  // Auth actions
+  setUserId, setAuthLoading, loadFromSupabase, signOut
 }
 ```
 
@@ -384,12 +391,236 @@ interface AppState {
 | No versioning migration | Version 1 only, no upgrade logic |
 
 ### Database / Backend
-**Status: NOT CONNECTED**
-There is currently no backend database. If a database is to be connected:
-- User will provide credentials
-- Do NOT assume or hardcode any database connection strings
-- Ask user for Supabase project URL, anon key, or other credentials before implementation
-- The store architecture supports migration to a backend (all actions are already centralized)
+**Status: CONNECTED — Supabase (PostgreSQL)**
+
+| Detail | Value |
+|--------|-------|
+| Provider | Supabase (free tier) |
+| Project URL | `https://vjcsqnzpqcdfguqezvop.supabase.co` |
+| Credentials file | `.env` (gitignored — `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`) |
+| Client library | `@supabase/supabase-js@^2.99.1` |
+| Client module | `src/lib/supabase.ts` |
+| Auth | Supabase Auth (email + password) |
+
+**Sync strategy:**
+- Zustand `persist` (localStorage) remains as offline cache
+- Every CRUD action fires a fire-and-forget Supabase upsert/delete after updating local state
+- On sign-in: `loadFromSupabase(userId)` pulls all user data from Supabase (authoritative source)
+- On first sign-up (no Supabase data): existing local data bulk-migrated via `migrateLocalDataToSupabase()`
+- `partialize` in persist config excludes `userId` and `isAuthLoading` from localStorage
+
+**New files:**
+- `src/lib/supabase.ts` — Supabase client, type converters (camelCase ↔ snake_case), sync helpers
+- `src/components/AuthView.tsx` — Email/password sign-in / sign-up screen
+
+---
+
+### Supabase Schema Design
+
+**Platform:** Supabase (PostgreSQL + Auth + Realtime)
+**Free Tier:** Yes — sufficient for personal use (500MB DB, unlimited API requests)
+**Auth:** Supabase Auth (email/password or Google OAuth)
+**Sync Strategy:** Replace localStorage persist with Supabase reads/writes per action; keep localStorage as offline cache
+**Data Safety:** All mutations use `upsert` (INSERT ... ON CONFLICT DO UPDATE) — existing data is never silently overwritten or lost
+
+#### Tables Overview
+
+| Table | Description | Key |
+|-------|-------------|-----|
+| `projects` | User projects | `id` (uuid) |
+| `labels` | User labels/tags | `id` (uuid) |
+| `tasks` | All tasks | `id` (uuid) |
+| `habits` | Habit definitions + completions | `id` (uuid) |
+| `pomodoro_settings` | Per-user Pomodoro config | `user_id` (PK) |
+| `user_preferences` | Sync-able UI state | `user_id` (PK) |
+
+> `auth.users` is managed automatically by Supabase Auth — do not create it manually.
+
+---
+
+#### Full SQL Schema
+
+```sql
+-- =============================================
+-- GET DONE — Supabase Database Schema
+-- Run this in Supabase SQL Editor (Dashboard → SQL Editor)
+-- Safe to re-run: uses IF NOT EXISTS / OR REPLACE
+-- =============================================
+
+-- Enable UUID generation
+create extension if not exists "uuid-ossp";
+
+-- ── PROJECTS ─────────────────────────────────
+create table if not exists public.projects (
+  id            uuid        primary key default uuid_generate_v4(),
+  user_id       uuid        not null references auth.users(id) on delete cascade,
+  name          text        not null,
+  color         text        not null,
+  icon          text        not null default '',
+  "order"       integer     not null default 0,
+  is_favorite   boolean     not null default false,
+  created_at    timestamptz not null default now()
+);
+
+-- ── LABELS ───────────────────────────────────
+create table if not exists public.labels (
+  id            uuid        primary key default uuid_generate_v4(),
+  user_id       uuid        not null references auth.users(id) on delete cascade,
+  name          text        not null,
+  color         text        not null,
+  created_at    timestamptz not null default now()
+);
+
+-- ── TASKS ────────────────────────────────────
+create table if not exists public.tasks (
+  id            uuid        primary key default uuid_generate_v4(),
+  user_id       uuid        not null references auth.users(id) on delete cascade,
+  title         text        not null,
+  description   text        not null default '',
+  completed     boolean     not null default false,
+  priority      smallint    not null default 4
+                            check (priority in (1, 2, 3, 4)),
+  project_id    uuid        references public.projects(id) on delete set null,
+  label_ids     uuid[]      not null default '{}',
+  due_date      date,
+  due_time      time,
+  parent_id     uuid        references public.tasks(id) on delete cascade,
+  "order"       integer     not null default 0,
+  created_at    timestamptz not null default now(),
+  completed_at  timestamptz,
+  recurring     jsonb,
+  quadrant      text        check (quadrant in (
+                  'urgent-important',
+                  'not-urgent-important',
+                  'urgent-not-important',
+                  'not-urgent-not-important'
+                )),
+  gtd_context   text        check (gtd_context in (
+                  'inbox', 'next-action', 'waiting-for',
+                  'someday-maybe', 'reference', 'project-support'
+                ))
+);
+
+-- ── HABITS ───────────────────────────────────
+create table if not exists public.habits (
+  id            uuid        primary key default uuid_generate_v4(),
+  user_id       uuid        not null references auth.users(id) on delete cascade,
+  name          text        not null,
+  icon          text        not null default '',
+  color         text        not null,
+  frequency     text        not null default 'daily'
+                            check (frequency in ('daily', 'weekly', 'custom')),
+  custom_days   integer[]   not null default '{}',
+  target_count  integer     not null default 1,
+  completions   jsonb       not null default '{}',
+  created_at    timestamptz not null default now(),
+  streak        integer     not null default 0,
+  best_streak   integer     not null default 0,
+  "order"       integer     not null default 0
+);
+
+-- ── POMODORO SETTINGS (one row per user) ─────
+create table if not exists public.pomodoro_settings (
+  user_id                    uuid    primary key references auth.users(id) on delete cascade,
+  work_duration              integer not null default 25,
+  short_break_duration       integer not null default 5,
+  long_break_duration        integer not null default 15,
+  sessions_before_long_break integer not null default 4,
+  auto_start_break           boolean not null default false,
+  auto_start_work            boolean not null default false,
+  updated_at                 timestamptz not null default now()
+);
+
+-- ── USER PREFERENCES (sync-able UI state) ────
+create table if not exists public.user_preferences (
+  user_id        uuid    primary key references auth.users(id) on delete cascade,
+  show_completed boolean not null default false,
+  updated_at     timestamptz not null default now()
+);
+
+-- =============================================
+-- ROW LEVEL SECURITY — Users see only their data
+-- =============================================
+
+alter table public.projects         enable row level security;
+alter table public.labels           enable row level security;
+alter table public.tasks            enable row level security;
+alter table public.habits           enable row level security;
+alter table public.pomodoro_settings enable row level security;
+alter table public.user_preferences  enable row level security;
+
+-- Projects RLS
+create policy "users_own_projects"
+  on public.projects for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Labels RLS
+create policy "users_own_labels"
+  on public.labels for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Tasks RLS
+create policy "users_own_tasks"
+  on public.tasks for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Habits RLS
+create policy "users_own_habits"
+  on public.habits for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Pomodoro Settings RLS
+create policy "users_own_pomodoro_settings"
+  on public.pomodoro_settings for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- User Preferences RLS
+create policy "users_own_preferences"
+  on public.user_preferences for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- =============================================
+-- INDEXES — Speed up common queries
+-- =============================================
+
+create index if not exists idx_tasks_user_id      on public.tasks(user_id);
+create index if not exists idx_tasks_project_id   on public.tasks(project_id);
+create index if not exists idx_tasks_due_date     on public.tasks(due_date);
+create index if not exists idx_tasks_completed    on public.tasks(completed);
+create index if not exists idx_projects_user_id   on public.projects(user_id);
+create index if not exists idx_labels_user_id     on public.labels(user_id);
+create index if not exists idx_habits_user_id     on public.habits(user_id);
+```
+
+---
+
+#### Column-to-TypeScript Mapping
+
+| Supabase Column | TypeScript Field | Notes |
+|-----------------|-----------------|-------|
+| `tasks.priority` | `Task.priority` | `smallint` 1–4 |
+| `tasks.label_ids` | `Task.labelIds` | `uuid[]` array |
+| `tasks.due_date` | `Task.dueDate` | stored as `date`, app uses `'yyyy-MM-dd'` string |
+| `tasks.due_time` | `Task.dueTime` | stored as `time`, app uses `'HH:mm'` string |
+| `tasks.recurring` | `Task.recurring` | `jsonb` → `RecurringConfig \| null` |
+| `tasks.completed_at` | `Task.completedAt` | `timestamptz` → ISO string |
+| `tasks.quadrant` | `Task.quadrant` | `text` with CHECK constraint |
+| `tasks.gtd_context` | `Task.gtdContext` | `text` with CHECK constraint |
+| `habits.completions` | `Habit.completions` | `jsonb` → `Record<string, number>` |
+| `habits.custom_days` | `Habit.customDays` | `integer[]` |
+| `projects.is_favorite` | `Project.isFavorite` | `boolean` |
+
+#### Data Safety Rules (Implementation)
+- **Never DELETE and re-INSERT** — always use `upsert` to preserve data
+- **Migrations**: add columns with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (non-destructive)
+- **Offline**: keep Zustand persist as local cache; sync to Supabase on reconnect
+- **Conflict resolution**: Supabase `updated_at` timestamp wins (last-write-wins per row)
 
 ### Data Export/Import
 **Status: NOT IMPLEMENTED**
@@ -593,10 +824,10 @@ switch (currentView) {
 
 ### Theme Configuration (`tailwind.config.js`)
 
-**Primary (Red — action color):**
-- `primary-DEFAULT`: `#dc4c3e` (main action color, buttons, checkboxes)
-- `primary-light`: `#e8786d`
-- `primary-dark`: `#c43d30`
+**Primary (Purple — action color):**
+- `primary-600`: `#800080` (main action color, buttons, checkboxes — DEFAULT shade)
+- `primary-500`: `#a020a0` (lighter purple)
+- `primary-700`: `#650065` (darker purple)
 
 **Surface (Dark grays — backgrounds):**
 - `surface-50`: `#fafafa` (near-white text)
@@ -709,14 +940,16 @@ switch (currentView) {
 | P3 | Add batch select + delete/move | Productivity boost |
 | P3 | Add priority filter toggle in views | Missing filter |
 
-### Phase 5 — Backend / Sync (When User Provides Credentials)
+### Phase 5 — Backend / Sync ✅ COMPLETE
 
-| Priority | Task | Why |
-|----------|------|-----|
-| P1 | Connect Supabase (user will provide credentials) | Cross-device sync |
-| P1 | Add auth (email/password or Google) | Required for cloud storage |
-| P2 | Add real-time sync across tabs | Data consistency |
-| P3 | Add data backup/restore | Data safety |
+| Priority | Task | Status |
+|----------|------|--------|
+| P1 | Install `@supabase/supabase-js` | ✅ Done (`^2.99.1`) |
+| P1 | Create `src/lib/supabase.ts` | ✅ Done |
+| P1 | Add auth (email/password via Supabase Auth) | ✅ Done (`AuthView.tsx`) |
+| P1 | Migrate `useStore.ts` actions to write to Supabase (upsert pattern) | ✅ Done |
+| P2 | Add real-time subscriptions (Supabase Realtime) for cross-tab sync | Not yet implemented |
+| P3 | Add data backup/restore | Not yet implemented |
 
 ### Phase 6 — Polish & Power Features
 
@@ -808,6 +1041,8 @@ All changes to the application must be recorded here.
 | Date | Version | Changed By | Description |
 |------|---------|------------|-------------|
 | 2026-03-14 | 1.0.0 | Initial Analysis | APP_SPEC.md created. Full codebase analysis documented. All types, store, components, views, bugs, and roadmap captured. |
+| 2026-03-14 | 1.1.0 | AI Agent | Changed primary color from red (`#dc4c3e`) to purple (`#800080`) in `tailwind.config.js`. Updated §1 and §10 to reflect new color. Added full Supabase schema design to §6 (6 tables, RLS policies, indexes, column mapping, data-safety rules). Updated §12 Phase 5 roadmap with implementation steps. No backend code implemented — awaiting user-provided Supabase credentials. |
+| 2026-03-14 | 1.2.0 | AI Agent | Implemented Supabase cloud sync. Installed `@supabase/supabase-js@^2.99.1`. Created `src/lib/supabase.ts` (client, camelCase↔snake_case converters, fire-and-forget sync helpers, bulk migration). Created `src/components/AuthView.tsx` (email/password sign-in/sign-up). Updated `src/store/useStore.ts`: added `userId`, `isAuthLoading`, `setUserId`, `setAuthLoading`, `loadFromSupabase`, `signOut`; all CRUD actions now sync to Supabase; `partialize` excludes auth state from localStorage. Updated `src/App.tsx`: auth gate (loading spinner → AuthView → main app), session check on mount, `onAuthStateChange` listener. Updated `vite.config.ts` PWA `theme_color` to `#800080`. Created `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (gitignored). Updated §2, §6 to reflect new status. |
 
 ---
 

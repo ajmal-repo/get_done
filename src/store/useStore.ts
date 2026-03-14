@@ -2,6 +2,20 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { v4 as uuid } from 'uuid'
 import { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, ViewType } from '@/types'
+import {
+  supabase,
+  loadAllUserData,
+  migrateLocalDataToSupabase,
+  syncTask,
+  syncDeleteTask,
+  syncProject,
+  syncDeleteProject,
+  syncLabel,
+  syncDeleteLabel,
+  syncHabit,
+  syncDeleteHabit,
+  syncPomodoroSettings,
+} from '@/lib/supabase'
 
 interface AppState {
   // Data
@@ -20,6 +34,10 @@ interface AppState {
 
   // Pomodoro
   pomodoroSettings: PomodoroSettings
+
+  // Auth state (not persisted)
+  userId: string | null
+  isAuthLoading: boolean
 
   // Task actions
   addTask: (task: Partial<Task>) => Task
@@ -50,6 +68,12 @@ interface AppState {
   setSearchQuery: (q: string) => void
   setShowCompleted: (show: boolean) => void
   updatePomodoroSettings: (settings: Partial<PomodoroSettings>) => void
+
+  // Auth actions
+  setUserId: (id: string | null) => void
+  setAuthLoading: (loading: boolean) => void
+  loadFromSupabase: (userId: string) => Promise<void>
+  signOut: () => Promise<void>
 }
 
 export const useStore = create<AppState>()(
@@ -61,7 +85,7 @@ export const useStore = create<AppState>()(
         { id: 'work', name: 'Work', color: '#db4035', icon: 'briefcase', order: 1, isFavorite: false },
       ],
       labels: [
-        { id: 'l1', name: 'urgent', color: '#dc4c3e' },
+        { id: 'l1', name: 'urgent', color: '#800080' },
         { id: 'l2', name: 'focus', color: '#4073ff' },
         { id: 'l3', name: 'quick-win', color: '#299438' },
       ],
@@ -81,13 +105,59 @@ export const useStore = create<AppState>()(
         autoStartWork: false,
       },
 
+      // Auth state (defaults — not restored from localStorage)
+      userId: null,
+      isAuthLoading: true,
+
+      // ── Auth actions ────────────────────────────────────────────────────
+
+      setUserId: (id) => set({ userId: id }),
+      setAuthLoading: (loading) => set({ isAuthLoading: loading }),
+
+      loadFromSupabase: async (userId) => {
+        set({ isAuthLoading: true })
+        const data = await loadAllUserData(userId)
+        const hasSupabaseData =
+          data.tasks.length > 0 || data.projects.length > 0 || data.habits.length > 0
+
+        if (!hasSupabaseData) {
+          // First sign-in: migrate existing local data to Supabase
+          const state = get()
+          await migrateLocalDataToSupabase(
+            state.tasks,
+            state.projects,
+            state.labels,
+            state.habits,
+            state.pomodoroSettings,
+            userId
+          )
+        } else {
+          // Returning user: replace local state with Supabase data (authoritative)
+          set({
+            tasks: data.tasks,
+            projects: data.projects,
+            labels: data.labels,
+            habits: data.habits,
+            pomodoroSettings: data.pomodoroSettings ?? get().pomodoroSettings,
+          })
+        }
+        set({ userId, isAuthLoading: false })
+      },
+
+      signOut: async () => {
+        await supabase.auth.signOut()
+        set({ userId: null })
+      },
+
+      // ── Task actions ────────────────────────────────────────────────────
+
       addTask: (partial) => {
         const task: Task = {
           id: uuid(),
           title: partial.title || '',
           description: partial.description || '',
           completed: false,
-          priority: partial.priority || 4,
+          priority: (partial.priority || 4) as Priority,
           projectId: partial.projectId ?? null,
           labelIds: partial.labelIds || [],
           dueDate: partial.dueDate || null,
@@ -97,36 +167,61 @@ export const useStore = create<AppState>()(
           createdAt: new Date().toISOString(),
           completedAt: null,
           recurring: partial.recurring || null,
-          quadrant: partial.quadrant || null,
-          gtdContext: partial.gtdContext || null,
+          quadrant: (partial.quadrant || null) as Quadrant | null,
+          gtdContext: (partial.gtdContext || null) as GtdContext | null,
         }
         set((s) => ({ tasks: [...s.tasks, task] }))
+        const { userId } = get()
+        if (userId) syncTask(task, userId)
         return task
       },
 
-      updateTask: (id, updates) =>
+      updateTask: (id, updates) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-        })),
+        }))
+        const { userId, tasks } = get()
+        if (userId) {
+          const updated = tasks.find((t) => t.id === id)
+          if (updated) syncTask(updated, userId)
+        }
+      },
 
-      deleteTask: (id) =>
+      deleteTask: (id) => {
         set((s) => ({
           tasks: s.tasks.filter((t) => t.id !== id && t.parentId !== id),
-        })),
+        }))
+        const { userId } = get()
+        if (userId) syncDeleteTask(id)
+      },
 
-      toggleTask: (id) =>
+      toggleTask: (id) => {
         set((s) => ({
           tasks: s.tasks.map((t) =>
             t.id === id
               ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null }
               : t
           ),
-        })),
+        }))
+        const { userId, tasks } = get()
+        if (userId) {
+          const updated = tasks.find((t) => t.id === id)
+          if (updated) syncTask(updated, userId)
+        }
+      },
 
-      reorderTask: (id, newOrder) =>
+      reorderTask: (id, newOrder) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, order: newOrder } : t)),
-        })),
+        }))
+        const { userId, tasks } = get()
+        if (userId) {
+          const updated = tasks.find((t) => t.id === id)
+          if (updated) syncTask(updated, userId)
+        }
+      },
+
+      // ── Project actions ─────────────────────────────────────────────────
 
       addProject: (partial) => {
         const project: Project = {
@@ -138,19 +233,32 @@ export const useStore = create<AppState>()(
           isFavorite: false,
         }
         set((s) => ({ projects: [...s.projects, project] }))
+        const { userId } = get()
+        if (userId) syncProject(project, userId)
         return project
       },
 
-      updateProject: (id, updates) =>
+      updateProject: (id, updates) => {
         set((s) => ({
           projects: s.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-        })),
+        }))
+        const { userId, projects } = get()
+        if (userId) {
+          const updated = projects.find((p) => p.id === id)
+          if (updated) syncProject(updated, userId)
+        }
+      },
 
-      deleteProject: (id) =>
+      deleteProject: (id) => {
         set((s) => ({
           projects: s.projects.filter((p) => p.id !== id),
           tasks: s.tasks.map((t) => (t.projectId === id ? { ...t, projectId: null } : t)),
-        })),
+        }))
+        const { userId } = get()
+        if (userId) syncDeleteProject(id)
+      },
+
+      // ── Label actions ───────────────────────────────────────────────────
 
       addLabel: (partial) => {
         const label: Label = {
@@ -159,19 +267,44 @@ export const useStore = create<AppState>()(
           color: partial.color || '#808080',
         }
         set((s) => ({ labels: [...s.labels, label] }))
+        const { userId } = get()
+        if (userId) syncLabel(label, userId)
         return label
       },
 
-      updateLabel: (id, updates) =>
+      updateLabel: (id, updates) => {
         set((s) => ({
           labels: s.labels.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-        })),
+        }))
+        const { userId, labels } = get()
+        if (userId) {
+          const updated = labels.find((l) => l.id === id)
+          if (updated) syncLabel(updated, userId)
+        }
+      },
 
-      deleteLabel: (id) =>
+      deleteLabel: (id) => {
+        // Capture which tasks had this label before removing it
+        const affectedTaskIds = get().tasks
+          .filter((t) => t.labelIds.includes(id))
+          .map((t) => t.id)
+
         set((s) => ({
           labels: s.labels.filter((l) => l.id !== id),
           tasks: s.tasks.map((t) => ({ ...t, labelIds: t.labelIds.filter((lid) => lid !== id) })),
-        })),
+        }))
+
+        const { userId, tasks } = get()
+        if (userId) {
+          syncDeleteLabel(id)
+          // Re-sync affected tasks so their label_ids array is updated in DB
+          tasks
+            .filter((t) => affectedTaskIds.includes(t.id))
+            .forEach((t) => syncTask(t, userId))
+        }
+      },
+
+      // ── Habit actions ───────────────────────────────────────────────────
 
       addHabit: (partial) => {
         const habit: Habit = {
@@ -189,17 +322,28 @@ export const useStore = create<AppState>()(
           order: get().habits.length,
         }
         set((s) => ({ habits: [...s.habits, habit] }))
+        const { userId } = get()
+        if (userId) syncHabit(habit, userId)
       },
 
-      updateHabit: (id, updates) =>
+      updateHabit: (id, updates) => {
         set((s) => ({
           habits: s.habits.map((h) => (h.id === id ? { ...h, ...updates } : h)),
-        })),
+        }))
+        const { userId, habits } = get()
+        if (userId) {
+          const updated = habits.find((h) => h.id === id)
+          if (updated) syncHabit(updated, userId)
+        }
+      },
 
-      deleteHabit: (id) =>
-        set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
+      deleteHabit: (id) => {
+        set((s) => ({ habits: s.habits.filter((h) => h.id !== id) }))
+        const { userId } = get()
+        if (userId) syncDeleteHabit(id)
+      },
 
-      toggleHabitCompletion: (id, date) =>
+      toggleHabitCompletion: (id, date) => {
         set((s) => ({
           habits: s.habits.map((h) => {
             if (h.id !== id) return h
@@ -226,7 +370,15 @@ export const useStore = create<AppState>()(
               bestStreak: Math.max(h.bestStreak, streak),
             }
           }),
-        })),
+        }))
+        const { userId, habits } = get()
+        if (userId) {
+          const updated = habits.find((h) => h.id === id)
+          if (updated) syncHabit(updated, userId)
+        }
+      },
+
+      // ── UI actions ──────────────────────────────────────────────────────
 
       setView: (view, id = null) =>
         set({
@@ -239,12 +391,30 @@ export const useStore = create<AppState>()(
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSearchQuery: (q) => set({ searchQuery: q }),
       setShowCompleted: (show) => set({ showCompleted: show }),
-      updatePomodoroSettings: (settings) =>
-        set((s) => ({ pomodoroSettings: { ...s.pomodoroSettings, ...settings } })),
+
+      updatePomodoroSettings: (settings) => {
+        set((s) => ({ pomodoroSettings: { ...s.pomodoroSettings, ...settings } }))
+        const { userId, pomodoroSettings } = get()
+        if (userId) syncPomodoroSettings(pomodoroSettings, userId)
+      },
     }),
     {
       name: 'get-done-storage',
       version: 1,
+      // Exclude auth state from localStorage persistence
+      partialize: (state) => ({
+        tasks: state.tasks,
+        projects: state.projects,
+        labels: state.labels,
+        habits: state.habits,
+        currentView: state.currentView,
+        currentProjectId: state.currentProjectId,
+        currentLabelId: state.currentLabelId,
+        sidebarOpen: state.sidebarOpen,
+        searchQuery: state.searchQuery,
+        showCompleted: state.showCompleted,
+        pomodoroSettings: state.pomodoroSettings,
+      }),
     }
   )
 )

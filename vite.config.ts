@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Get Done - Task Manager',
         short_name: 'Get Done',
         description: 'Task management with habit tracking and productivity tools',
-        theme_color: '#dc4c3e',
+        theme_color: '#800080',
         background_color: '#1e1e1e',
         display: 'standalone',
         orientation: 'portrait',
