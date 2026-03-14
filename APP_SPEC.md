@@ -40,7 +40,8 @@ Do not change anything not explicitly requested.
 11. [Known Bugs & Issues](#11-known-bugs--issues)
 12. [Prioritized Improvements Roadmap](#12-prioritized-improvements-roadmap)
 13. [AI Agent Rules & Constraints](#13-ai-agent-rules--constraints)
-14. [Change Log](#14-change-log)
+14. [Git & Repository](#14-git--repository)
+15. [Change Log](#15-change-log)
 
 ---
 
@@ -977,6 +978,7 @@ switch (currentView) {
 2. Update §11 Known Bugs — remove fixed bugs, add any new ones discovered
 3. Update the relevant section if you add/change types, components, views, or routes
 4. Do NOT leave APP_SPEC.md out of date
+5. **Push all changes to the GitHub repository on the `main` branch** (see §15 Git & Repository)
 
 ### What You MUST NOT Do
 - Do NOT add new npm packages without explicit user permission
@@ -1034,7 +1036,39 @@ switch (currentView) {
 
 ---
 
-## 14. CHANGE LOG
+## 14. GIT & REPOSITORY
+
+### Repository Details
+
+| Field | Value |
+|-------|-------|
+| Remote URL | `https://github.com/ajmal-repo/get_done` |
+| Default branch | `main` |
+| Initialized | 2026-03-14 |
+
+### Git Rules for AI Agents
+
+> ⚠️ **MANDATORY:** After completing ANY task, you MUST commit and push all changes to `main`.
+
+**Push workflow (run after every completed task):**
+```
+git add <changed files>   ← stage only relevant files (never use git add -A blindly)
+git commit -m "..."       ← descriptive message, include Co-Authored-By footer
+git push origin main      ← always push to main
+```
+
+**Rules:**
+- Always push to `main` — never create other branches unless explicitly asked
+- Never push `.env` (it is gitignored — contains Supabase credentials)
+- Never push `node_modules/`, `dist/`, `.claude/`
+- Commit message must describe what changed and why
+- Always include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` in commit footer
+- If the repo has no remote yet: `git remote add origin https://github.com/ajmal-repo/get_done.git`
+- If the local repo is not initialized: `git init && git checkout -b main` first
+
+---
+
+## 15. CHANGE LOG
 
 All changes to the application must be recorded here.
 
