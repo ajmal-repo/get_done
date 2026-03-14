@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { Task, PRIORITY_COLORS } from '@/types'
 import { TaskEditor } from './TaskEditor'
 import {
-  Check, Calendar, Tag, Trash2, Edit3, ChevronRight,
-  GripVertical, MoreHorizontal
+  Check, Calendar, Tag, Trash2, Edit3,
+  MoreVertical, Copy, FolderOpen, Paperclip, Bell, User, Clock
 } from 'lucide-react'
 import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns'
 
@@ -14,12 +14,27 @@ interface TaskItemProps {
 }
 
 export function TaskItem({ task, showProject = true }: TaskItemProps) {
-  const { toggleTask, deleteTask, projects, labels } = useStore()
+  const { toggleTask, deleteTask, duplicateTask, moveTask, projects, labels } = useStore()
   const [editing, setEditing] = useState(false)
-  const [showActions, setShowActions] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [showMoveMenu, setShowMoveMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const project = projects.find((p) => p.id === task.projectId)
   const taskLabels = labels.filter((l) => task.labelIds.includes(l.id))
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showMenu) return
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+        setShowMoveMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showMenu])
 
   const formatDueDate = (date: string) => {
     const d = parseISO(date)
@@ -46,7 +61,7 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
           {task.completed && <Check size={12} className="text-surface-300" />}
         </button>
 
-        {/* Content */}
+        {/* Content — click opens TaskEditor */}
         <div className="flex-1 min-w-0" onClick={() => setEditing(true)}>
           <p className={`text-sm leading-snug ${task.completed ? 'line-through text-surface-400' : 'text-surface-50'}`}>
             {task.title}
@@ -62,12 +77,40 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
               <span className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-400' : 'text-surface-400'}`}>
                 <Calendar size={11} />
                 {formatDueDate(task.dueDate)}
+                {task.dueTime && (
+                  <span className="flex items-center gap-0.5">
+                    <Clock size={10} />
+                    {task.dueTime}
+                  </span>
+                )}
               </span>
             )}
             {showProject && project && (
               <span className="flex items-center gap-1 text-xs text-surface-400">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: project.color }} />
                 {project.name}
+              </span>
+            )}
+            {task.assignee && (
+              <span className="flex items-center gap-1 text-xs text-surface-400">
+                <User size={10} />
+                {task.assignee}
+              </span>
+            )}
+            {task.attachments && task.attachments.length > 0 && (
+              <span className="flex items-center gap-1 text-xs text-surface-400">
+                <Paperclip size={10} />
+                {task.attachments.length}
+              </span>
+            )}
+            {task.reminder && (
+              <span className="flex items-center gap-1 text-xs text-blue-400">
+                <Bell size={10} />
+              </span>
+            )}
+            {task.recurring && (
+              <span className="flex items-center gap-1 text-xs text-green-400">
+                ↻
               </span>
             )}
             {taskLabels.map((l) => (
@@ -79,48 +122,117 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* 3-dot menu button */}
+        <div className="relative" ref={menuRef}>
           <button
+<<<<<<< HEAD
             onClick={() => setEditing(true)}
             className="p-1.5 text-surface-400 hover:text-surface-50 rounded transition-colors"
+=======
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu(!showMenu)
+              setShowMoveMenu(false)
+            }}
+            className="p-1.5 text-surface-500 hover:text-white rounded transition-colors"
+>>>>>>> 5991ac7 (v1.1.0: TaskItem popup menu, TaskEditor enhancements, mobile theme fix)
           >
-            <Edit3 size={14} />
+            <MoreVertical size={16} />
           </button>
-          <button
-            onClick={() => deleteTask(task.id)}
-            className="p-1.5 text-surface-400 hover:text-red-400 rounded transition-colors"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
 
-        {/* Mobile swipe indicator */}
-        <button
-          onClick={() => setShowActions(!showActions)}
-          className="md:hidden p-1 text-surface-500"
-        >
-          <MoreHorizontal size={16} />
-        </button>
+          {/* Popup menu */}
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-surface-700 rounded-lg shadow-xl py-1 z-50 animate-scale-in">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditing(true)
+                  setShowMenu(false)
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 w-full text-sm text-surface-200 hover:bg-surface-600 transition-colors"
+              >
+                <Edit3 size={14} />
+                <span>Edit</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  duplicateTask(task.id)
+                  setShowMenu(false)
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 w-full text-sm text-surface-200 hover:bg-surface-600 transition-colors"
+              >
+                <Copy size={14} />
+                <span>Duplicate</span>
+              </button>
+
+              {/* Move to project */}
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowMoveMenu(!showMoveMenu)
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 w-full text-sm text-surface-200 hover:bg-surface-600 transition-colors"
+                >
+                  <FolderOpen size={14} />
+                  <span>Move to</span>
+                </button>
+                {showMoveMenu && (
+                  <div className="absolute left-full top-0 ml-1 w-44 bg-surface-700 rounded-lg shadow-xl py-1 z-50 animate-scale-in">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        moveTask(task.id, null)
+                        setShowMenu(false)
+                        setShowMoveMenu(false)
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 w-full text-sm hover:bg-surface-600 transition-colors ${
+                        task.projectId === null ? 'text-primary-400' : 'text-surface-200'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-surface-400" />
+                      <span>Inbox</span>
+                      {task.projectId === null && <Check size={12} className="ml-auto text-primary-400" />}
+                    </button>
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          moveTask(task.id, p.id)
+                          setShowMenu(false)
+                          setShowMoveMenu(false)
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 w-full text-sm hover:bg-surface-600 transition-colors ${
+                          task.projectId === p.id ? 'text-primary-400' : 'text-surface-200'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        <span>{p.name}</span>
+                        {task.projectId === p.id && <Check size={12} className="ml-auto text-primary-400" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-surface-600 my-1" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteTask(task.id)
+                  setShowMenu(false)
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 w-full text-sm text-red-400 hover:bg-red-900/30 transition-colors"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* Mobile actions */}
-      {showActions && (
-        <div className="flex items-center gap-2 px-4 py-2 md:hidden animate-fade-in">
-          <button
-            onClick={() => { setEditing(true); setShowActions(false) }}
-            className="flex-1 py-2 text-xs text-center bg-surface-700 rounded-lg text-surface-300"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => { deleteTask(task.id); setShowActions(false) }}
-            className="flex-1 py-2 text-xs text-center bg-red-900/30 rounded-lg text-red-400"
-          >
-            Delete
-          </button>
-        </div>
-      )}
 
       {editing && <TaskEditor task={task} onClose={() => setEditing(false)} />}
     </>

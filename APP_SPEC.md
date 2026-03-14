@@ -1,5 +1,5 @@
 # GET DONE — APPLICATION SPECIFICATION FILE
-**Version:** 1.0.0 | **Last Updated:** 2026-03-14 | **Author:** Muhammed Ajmal
+**Version:** 1.1.0 | **Last Updated:** 2026-03-15 | **Author:** Muhammed Ajmal
 
 ---
 
@@ -66,9 +66,16 @@ A unified productivity hub combining:
 - Mobile (secondary): bottom nav + sidebar drawer
 
 ### Design Philosophy
+<<<<<<< HEAD
 - Theme: System Default / Light / Dark — user-selectable (default: Dark)
 - Purple primary color (`#800080`) — action-forward design
 - Surface palette adapts via CSS custom properties (light: `#f0f0f0`–`#111`, dark: `#171717`–`#fafafa`)
+=======
+- Dark theme always on (no light mode toggle)
+- Red primary color (`#dc4c3e`) — action-forward design
+- Mobile theme-color: `#171717` (matches dark background for status bar)
+- Surface dark palette (`#171717` to `#fafafa`)
+>>>>>>> 5991ac7 (v1.1.0: TaskItem popup menu, TaskEditor enhancements, mobile theme fix)
 - Minimal UI — no clutter, task-first
 - Mobile-first responsive layout
 
@@ -202,6 +209,26 @@ type ViewType =
 type ThemeMode = 'system' | 'light' | 'dark'
 ```
 
+### Attachment Interface
+```typescript
+interface Attachment {
+  id: string          // uuid v4
+  name: string        // file name
+  size: number        // bytes
+  type: string        // MIME type
+  dataUrl: string     // base64 data URL (stored in localStorage)
+  addedAt: string     // ISO timestamp
+}
+```
+
+### Reminder Interface
+```typescript
+interface Reminder {
+  date: string        // 'yyyy-MM-dd'
+  time: string        // 'HH:mm'
+}
+```
+
 ### Task Interface
 ```typescript
 interface Task {
@@ -213,14 +240,17 @@ interface Task {
   projectId: string | null          // null = inbox
   labelIds: string[]                // array of label IDs
   dueDate: string | null            // 'yyyy-MM-dd' format
-  dueTime: string | null            // 'HH:mm' format — ⚠️ NOT IMPLEMENTED IN UI YET
-  parentId: string | null           // for subtasks — ⚠️ NOT IMPLEMENTED IN UI YET
+  dueTime: string | null            // 'HH:mm' format — ✅ Implemented in TaskEditor
+  parentId: string | null           // for subtasks — ✅ Implemented in TaskEditor
   order: number                     // for manual ordering
   createdAt: string                 // ISO timestamp
   completedAt: string | null        // ISO timestamp when completed
-  recurring: RecurringConfig | null // ⚠️ NOT IMPLEMENTED IN UI YET
+  recurring: RecurringConfig | null // ✅ Implemented in TaskEditor
   quadrant: Quadrant | null         // for Eisenhower matrix
   gtdContext: GtdContext | null     // for GTD view
+  attachments: Attachment[]         // ✅ File attachments (base64 in localStorage)
+  reminder: Reminder | null         // ✅ Reminder date+time
+  assignee: string | null           // ✅ Assigned person name
 }
 ```
 
@@ -338,6 +368,7 @@ interface AppState {
 
   // Actions (functions — not persisted)
   addTask, updateTask, deleteTask, toggleTask, reorderTask
+  duplicateTask, moveTask
   addProject, updateProject, deleteProject
   addLabel, updateLabel, deleteLabel
   addHabit, updateHabit, deleteHabit, toggleHabitCompletion
@@ -676,15 +707,21 @@ No export or import functionality exists yet.
 - Priority-colored checkbox border
 - Title (line-through when completed)
 - Description snippet (if exists)
-- Due date (red if overdue)
+- Due date + time (red if overdue)
 - Project indicator dot (if showProject && projectId)
+- Assignee indicator (if assigned)
+- Attachment count indicator
+- Reminder indicator (bell icon)
+- Recurring indicator (↻ symbol)
 - Labels chips
-- Hover: Edit and Delete buttons
-- Mobile: 3-dot menu with Edit/Delete
+- 3-dot menu (MoreVertical) with popup containing: Edit, Duplicate, Move to (submenu with projects), Delete
 **Behavior:**
 - Click checkbox → toggleTask(id)
-- Click row → opens TaskEditor
+- Click content area → opens TaskEditor
+- 3-dot menu → shows popup with Edit, Duplicate, Move to project, Delete
+- Move to submenu → shows all projects + Inbox option
 - Overdue = `dueDate < today && !completed`
+- No always-visible edit/delete icons (removed per design)
 
 ### TaskList (`src/components/TaskList.tsx`)
 **Props:** `{ tasks: Task[], showProject?: boolean, emptyMessage?: string }`
@@ -706,11 +743,24 @@ No export or import functionality exists yet.
   defaultGtdContext?: GtdContext
 }
 ```
-**Fields:** title (required), description, due date, priority (1-4), project, labels (multi-select)
+**Fields:**
+- Title (required)
+- Description
+- Due date + due time (date picker + time picker)
+- Priority (1-4 dropdown)
+- Project (dropdown)
+- Labels (multi-select dropdown)
+- Assignee (text input)
+- Reminder (date + time picker, clearable)
+- Recurring (daily/weekly/monthly/yearly with interval)
+- File attachments (file picker, shows name + size, removable)
+- Sub-tasks (inline add, shows existing subtasks when editing)
 **Behavior:**
 - Auto-focuses title input on open
 - Validates: title must not be empty
-- On save: calls addTask or updateTask
+- On save: calls addTask or updateTask with all fields
+- Subtasks can be added inline (Enter to add when editing existing task)
+- File attachments stored as base64 data URLs
 - On backdrop click or Cancel button: calls onClose
 
 ---
@@ -887,9 +937,9 @@ Tailwind config uses `rgb(var(--surface-N) / <alpha-value>)` — supports opacit
 | # | Issue | File | Impact |
 |---|-------|------|--------|
 | M1 | **Habit frequency hardcoded to 'daily'** — `frequency` field supports weekly/custom but UI always sets daily | `HabitsView.tsx` | Weekly/custom habits impossible |
-| M2 | **Recurring tasks have no logic** — `RecurringConfig` type exists, no UI, no auto-generation | `types/index.ts` | Feature non-functional |
-| M3 | **Subtasks have no UI** — `parentId` exists, only used for cascade delete | `useStore.ts` | Feature non-functional |
-| M4 | **dueTime field never used** — Task has dueTime but it's never set, displayed, or used for sorting | `TaskEditor.tsx`, `TaskItem.tsx` | Wasted field |
+| M2 | **Recurring tasks have UI but no auto-generation** — `RecurringConfig` can be set in TaskEditor, but no logic auto-creates next occurrence | `TaskEditor.tsx`, `useStore.ts` | Recurring set but not auto-triggered |
+| M3 | **Subtasks UI is basic** — Can add/view subtasks in TaskEditor, but no inline completion toggle or nesting beyond 1 level | `TaskEditor.tsx` | Basic implementation |
+| M4 | ~~dueTime field never used~~ — **FIXED**: dueTime implemented in TaskEditor and displayed in TaskItem | - | Resolved |
 | M5 | **Overdue logic inconsistent** — `TaskItem` uses `isPast()` from date-fns; `TodayView` uses string comparison | `TaskItem.tsx`, `TodayView.tsx` | Inconsistent behavior |
 | M6 | **No duplicate habit name validation** | `HabitsView.tsx` | UX confusion |
 | M7 | **HabitsView color picker only shows 12 colors** (not 19 like ProjectView) | `HabitsView.tsx` | Inconsistent |
@@ -1187,10 +1237,14 @@ All changes to the application must be recorded here.
 | Date | Version | Changed By | Description |
 |------|---------|------------|-------------|
 | 2026-03-14 | 1.0.0 | Initial Analysis | APP_SPEC.md created. Full codebase analysis documented. All types, store, components, views, bugs, and roadmap captured. |
+<<<<<<< HEAD
 | 2026-03-14 | 1.1.0 | AI Agent | Changed primary color from red (`#dc4c3e`) to purple (`#800080`) in `tailwind.config.js`. Updated §1 and §10 to reflect new color. Added full Supabase schema design to §6 (6 tables, RLS policies, indexes, column mapping, data-safety rules). Updated §12 Phase 5 roadmap with implementation steps. No backend code implemented — awaiting user-provided Supabase credentials. |
 | 2026-03-14 | 1.2.0 | AI Agent | Implemented Supabase cloud sync. Installed `@supabase/supabase-js@^2.99.1`. Created `src/lib/supabase.ts` (client, camelCase↔snake_case converters, fire-and-forget sync helpers, bulk migration). Created `src/components/AuthView.tsx` (email/password sign-in/sign-up). Updated `src/store/useStore.ts`: added `userId`, `isAuthLoading`, `setUserId`, `setAuthLoading`, `loadFromSupabase`, `signOut`; all CRUD actions now sync to Supabase; `partialize` excludes auth state from localStorage. Updated `src/App.tsx`: auth gate (loading spinner → AuthView → main app), session check on mount, `onAuthStateChange` listener. Updated `vite.config.ts` PWA `theme_color` to `#800080`. Created `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (gitignored). Updated §2, §6 to reflect new status. |
 | 2026-03-14 | 1.3.0 | AI Agent | Added §14 Agent Task Workflow & To-Do Checklist. Defines mandatory to-do list creation, step-by-step end-of-task checklist (git push to main, SQL schema output, customer report format). Renumbered §14→§15 (Git) and §15→§16 (Change Log). Updated TOC accordingly. No code changes — spec-only update. |
 | 2026-03-14 | 1.4.0 | AI Agent | Added theme switching: System Default / Light / Dark. Added `ThemeMode` type to `src/types/index.ts`. Added `theme: ThemeMode` + `setTheme` to Zustand store (persisted). Updated `tailwind.config.js` surface colors to use CSS custom properties (`rgb(var(--surface-N) / <alpha-value>)`) for full opacity modifier support. Updated `src/index.css` with `:root` (light) and `:root.dark` (dark) CSS variable blocks; fixed body text, scrollbar, and checkbox hover to be theme-aware. Updated `src/App.tsx` to apply `dark` class to `<html>` element and listen for `prefers-color-scheme` changes in System mode. Updated `index.html` with FOUC-prevention inline script and moved `dark` class to `<html>`. Added 3-button theme toggle (Monitor/Sun/Moon) to `Sidebar.tsx` footer. Fixed `text-white` → `text-surface-50` in `TaskItem`, `TaskEditor`, `AuthView`, `PomodoroView`, `MatrixView`, `HabitsView`, `SearchView`, `ProjectView`, `Sidebar` (on non-colored backgrounds). Updated §1, §4, §5, §10, §12 in APP_SPEC.md. |
+=======
+| 2026-03-15 | 1.1.0 | AI Agent | **Mobile theme-color fix**: Changed `theme-color` meta and PWA manifest from `#dc4c3e` to `#171717` to match dark app background. **TaskItem redesign**: Removed always-visible edit/delete icons; unified 3-dot popup menu on all screen sizes with Edit, Duplicate, Move to project, and Delete options. **TaskEditor enhancements**: Added due time picker, assignee field, file attachments (base64), reminder (date+time), recurring task config (daily/weekly/monthly/yearly with interval), and sub-tasks section. **New types**: Added `Attachment` and `Reminder` interfaces. **New Task fields**: `attachments`, `reminder`, `assignee`. **New store actions**: `duplicateTask`, `moveTask`. |
+>>>>>>> 5991ac7 (v1.1.0: TaskItem popup menu, TaskEditor enhancements, mobile theme fix)
 
 ---
 

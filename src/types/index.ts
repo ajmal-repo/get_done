@@ -1,5 +1,19 @@
 export type Priority = 1 | 2 | 3 | 4
 
+export interface Attachment {
+  id: string
+  name: string
+  size: number       // bytes
+  type: string       // MIME type
+  dataUrl: string    // base64 data URL
+  addedAt: string    // ISO timestamp
+}
+
+export interface Reminder {
+  date: string       // 'yyyy-MM-dd'
+  time: string       // 'HH:mm'
+}
+
 export interface Task {
   id: string
   title: string
@@ -17,6 +31,9 @@ export interface Task {
   recurring: RecurringConfig | null
   quadrant: Quadrant | null
   gtdContext: GtdContext | null
+  attachments: Attachment[]
+  reminder: Reminder | null
+  assignee: string | null
 }
 
 export interface Project {

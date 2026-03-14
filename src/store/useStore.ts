@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { v4 as uuid } from 'uuid'
-import { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, ViewType, ThemeMode } from '@/types'
+import { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, ViewType, ThemeMode, Attachment } from '@/types'
 import {
   supabase,
   loadAllUserData,
@@ -48,6 +48,8 @@ interface AppState {
   updateTask: (id: string, updates: Partial<Task>) => void
   deleteTask: (id: string) => void
   toggleTask: (id: string) => void
+  duplicateTask: (id: string) => void
+  moveTask: (id: string, projectId: string | null) => void
   reorderTask: (id: string, newOrder: number) => void
 
   // Project actions
@@ -176,6 +178,9 @@ export const useStore = create<AppState>()(
           recurring: partial.recurring || null,
           quadrant: (partial.quadrant || null) as Quadrant | null,
           gtdContext: (partial.gtdContext || null) as GtdContext | null,
+          attachments: partial.attachments || [],
+          reminder: partial.reminder || null,
+          assignee: partial.assignee || null,
         }
         set((s) => ({ tasks: [...s.tasks, task] }))
         const { userId } = get()
@@ -220,6 +225,34 @@ export const useStore = create<AppState>()(
       reorderTask: (id, newOrder) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, order: newOrder } : t)),
+        }))
+        const { userId, tasks } = get()
+        if (userId) {
+          const updated = tasks.find((t) => t.id === id)
+          if (updated) syncTask(updated, userId)
+        }
+      },
+
+      duplicateTask: (id) => {
+        const original = get().tasks.find((t) => t.id === id)
+        if (!original) return
+        const duplicate: Task = {
+          ...original,
+          id: uuid(),
+          title: `${original.title} (copy)`,
+          completed: false,
+          completedAt: null,
+          order: get().tasks.length,
+          createdAt: new Date().toISOString(),
+        }
+        set((s) => ({ tasks: [...s.tasks, duplicate] }))
+        const { userId } = get()
+        if (userId) syncTask(duplicate, userId)
+      },
+
+      moveTask: (id, projectId) => {
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, projectId } : t)),
         }))
         const { userId, tasks } = get()
         if (userId) {
