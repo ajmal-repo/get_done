@@ -1045,11 +1045,13 @@ switch (currentView) {
 |-------|-------|
 | Remote URL | `https://github.com/ajmal-repo/get_done` |
 | Default branch | `main` |
+| **Only branch** | **`main`** — no other branches exist or should be created |
 | Initialized | 2026-03-14 |
+| Deployment | Netlify auto-deploys from `main` only |
 
 ### Git Rules for AI Agents
 
-> ⚠️ **MANDATORY:** After completing ANY task, you MUST commit and push all changes to `main`.
+> ⚠️ **MANDATORY:** This project uses a **single-branch workflow**. The only branch is `main`. Do NOT create feature branches, develop branches, or any other branches. All work is committed and pushed directly to `main`.
 
 **Push workflow (run after every completed task):**
 ```
@@ -1059,7 +1061,9 @@ git push origin main      ← always push to main
 ```
 
 **Rules:**
-- Always push to `main` — never create other branches unless explicitly asked
+- **Single branch only: `main`** — never create any other branches (no feature branches, no develop, no hotfix)
+- All commits go directly to `main`
+- Netlify auto-deploys from `main` — pushing to any other branch will NOT trigger deployment
 - Never push `.env` (it is gitignored — contains Supabase credentials)
 - Never push `node_modules/`, `dist/`, `.claude/`
 - Commit message must describe what changed and why
@@ -1078,6 +1082,7 @@ All changes to the application must be recorded here.
 | 2026-03-14 | 1.0.0 | Initial Analysis | APP_SPEC.md created. Full codebase analysis documented. All types, store, components, views, bugs, and roadmap captured. |
 | 2026-03-14 | 1.1.0 | AI Agent | Changed primary color from red (`#dc4c3e`) to purple (`#800080`) in `tailwind.config.js`. Updated §1 and §10 to reflect new color. Added full Supabase schema design to §6 (6 tables, RLS policies, indexes, column mapping, data-safety rules). Updated §12 Phase 5 roadmap with implementation steps. No backend code implemented — awaiting user-provided Supabase credentials. |
 | 2026-03-14 | 1.2.0 | AI Agent | Implemented Supabase cloud sync. Installed `@supabase/supabase-js@^2.99.1`. Created `src/lib/supabase.ts` (client, camelCase↔snake_case converters, fire-and-forget sync helpers, bulk migration). Created `src/components/AuthView.tsx` (email/password sign-in/sign-up). Updated `src/store/useStore.ts`: added `userId`, `isAuthLoading`, `setUserId`, `setAuthLoading`, `loadFromSupabase`, `signOut`; all CRUD actions now sync to Supabase; `partialize` excludes auth state from localStorage. Updated `src/App.tsx`: auth gate (loading spinner → AuthView → main app), session check on mount, `onAuthStateChange` listener. Updated `vite.config.ts` PWA `theme_color` to `#800080`. Created `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (gitignored). Updated §2, §6 to reflect new status. |
+| 2026-03-14 | 1.2.1 | AI Agent | Fixed "supabaseUrl is required" crash — made Supabase client nullable so app runs in local-only mode when `.env` is absent. Updated `supabase.ts`, `App.tsx`, `AuthView.tsx`, `useStore.ts`. Updated §14 Git rules to enforce single-branch (`main` only) workflow matching Netlify auto-deploy config. |
 
 ---
 
