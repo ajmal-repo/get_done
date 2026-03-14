@@ -101,7 +101,7 @@ export function PomodoroView() {
         </h1>
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="p-2 text-surface-400 hover:text-white rounded-lg transition-colors"
+          className="p-2 text-surface-400 hover:text-surface-50 rounded-lg transition-colors"
         >
           <Settings size={18} />
         </button>
@@ -114,7 +114,7 @@ export function PomodoroView() {
             key={p}
             onClick={() => switchPhase(p)}
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              phase === p ? 'bg-surface-700 text-white' : 'text-surface-400 hover:text-surface-200'
+              phase === p ? 'bg-surface-700 text-surface-50' : 'text-surface-400 hover:text-surface-200'
             }`}
           >
             {p === 'work' ? 'Focus' : p === 'short-break' ? 'Short Break' : 'Long Break'}
@@ -149,7 +149,7 @@ export function PomodoroView() {
       <div className="flex items-center justify-center gap-4 mb-8">
         <button
           onClick={reset}
-          className="p-3 text-surface-400 hover:text-white hover:bg-surface-800 rounded-full transition-all"
+          className="p-3 text-surface-400 hover:text-surface-50 hover:bg-surface-700 rounded-full transition-all"
         >
           <RotateCcw size={22} />
         </button>
@@ -162,7 +162,7 @@ export function PomodoroView() {
         </button>
         <button
           onClick={skip}
-          className="p-3 text-surface-400 hover:text-white hover:bg-surface-800 rounded-full transition-all"
+          className="p-3 text-surface-400 hover:text-surface-50 hover:bg-surface-700 rounded-full transition-all"
         >
           <SkipForward size={22} />
         </button>

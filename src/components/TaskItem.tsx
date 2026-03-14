@@ -48,7 +48,7 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0" onClick={() => setEditing(true)}>
-          <p className={`text-sm leading-snug ${task.completed ? 'line-through text-surface-400' : 'text-white'}`}>
+          <p className={`text-sm leading-snug ${task.completed ? 'line-through text-surface-400' : 'text-surface-50'}`}>
             {task.title}
           </p>
 
@@ -83,7 +83,7 @@ export function TaskItem({ task, showProject = true }: TaskItemProps) {
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => setEditing(true)}
-            className="p-1.5 text-surface-400 hover:text-white rounded transition-colors"
+            className="p-1.5 text-surface-400 hover:text-surface-50 rounded transition-colors"
           >
             <Edit3 size={14} />
           </button>

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
+import type { ThemeMode } from '@/types'
 import { Layout } from '@/components/Layout'
 import { AuthView } from '@/components/AuthView'
 import { TodayView } from '@/views/TodayView'
@@ -13,6 +14,19 @@ import { MatrixView } from '@/views/MatrixView'
 import { GtdView } from '@/views/GtdView'
 import { SearchView } from '@/views/SearchView'
 
+function applyTheme(theme: ThemeMode) {
+  const html = document.documentElement
+  if (theme === 'dark') {
+    html.classList.add('dark')
+  } else if (theme === 'light') {
+    html.classList.remove('dark')
+  } else {
+    // system
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    html.classList.toggle('dark', prefersDark)
+  }
+}
+
 export default function App() {
   const currentView = useStore((s) => s.currentView)
   const userId = useStore((s) => s.userId)
@@ -20,6 +34,21 @@ export default function App() {
   const setUserId = useStore((s) => s.setUserId)
   const setAuthLoading = useStore((s) => s.setAuthLoading)
   const loadFromSupabase = useStore((s) => s.loadFromSupabase)
+  const theme = useStore((s) => s.theme)
+
+  // Apply theme whenever it changes
+  useEffect(() => {
+    applyTheme(theme)
+
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      const handler = (e: MediaQueryListEvent) => {
+        document.documentElement.classList.toggle('dark', e.matches)
+      }
+      mq.addEventListener('change', handler)
+      return () => mq.removeEventListener('change', handler)
+    }
+  }, [theme])
 
   useEffect(() => {
     if (!supabase) {

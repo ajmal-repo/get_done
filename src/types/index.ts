@@ -79,6 +79,8 @@ export interface PomodoroSettings {
 
 export type ViewType = 'inbox' | 'today' | 'upcoming' | 'project' | 'label' | 'habits' | 'pomodoro' | 'matrix' | 'gtd' | 'search'
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 export const PROJECT_COLORS = [
   '#b8255f', '#db4035', '#ff9933', '#fad000',
   '#7ecc49', '#299438', '#6accbc', '#158fad',

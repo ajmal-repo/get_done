@@ -133,7 +133,7 @@ export function HabitsView() {
                     setTargetCount(habit.targetCount)
                     setAdding(true)
                   }}
-                  className="p-1 text-surface-500 hover:text-white transition-colors"
+                  className="p-1 text-surface-500 hover:text-surface-50 transition-colors"
                 >
                   <Edit3 size={12} />
                 </button>

@@ -32,7 +32,7 @@ export function SearchView() {
           className="flex-1 text-base"
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="text-surface-400 hover:text-white">
+          <button onClick={() => setSearchQuery('')} className="text-surface-400 hover:text-surface-50">
             <X size={18} />
           </button>
         )}

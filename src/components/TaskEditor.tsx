@@ -173,7 +173,7 @@ export function TaskEditor({ task, onClose, defaultProjectId, defaultDueDate, de
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-3 border-t border-surface-700">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-surface-300 hover:text-white transition-colors">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-surface-300 hover:text-surface-50 transition-colors">
             Cancel
           </button>
           <button

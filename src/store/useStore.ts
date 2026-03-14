@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { v4 as uuid } from 'uuid'
-import { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, ViewType } from '@/types'
+import { Task, Project, Label, Habit, PomodoroSettings, Priority, Quadrant, GtdContext, ViewType, ThemeMode } from '@/types'
 import {
   supabase,
   loadAllUserData,
@@ -34,6 +34,10 @@ interface AppState {
 
   // Pomodoro
   pomodoroSettings: PomodoroSettings
+
+  // Theme
+  theme: ThemeMode
+  setTheme: (theme: ThemeMode) => void
 
   // Auth state (not persisted)
   userId: string | null
@@ -104,6 +108,9 @@ export const useStore = create<AppState>()(
         autoStartBreak: false,
         autoStartWork: false,
       },
+
+      theme: 'dark' as ThemeMode,
+      setTheme: (theme) => set({ theme }),
 
       // Auth state (defaults — not restored from localStorage)
       userId: null,
@@ -414,6 +421,7 @@ export const useStore = create<AppState>()(
         searchQuery: state.searchQuery,
         showCompleted: state.showCompleted,
         pomodoroSettings: state.pomodoroSettings,
+        theme: state.theme,
       }),
     }
   )

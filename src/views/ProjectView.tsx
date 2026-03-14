@@ -54,7 +54,7 @@ export function ProjectView() {
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-surface-400 hover:text-white rounded-lg transition-colors"
+              className="p-2 text-surface-400 hover:text-surface-50 rounded-lg transition-colors"
             >
               <MoreHorizontal size={18} />
             </button>

@@ -66,9 +66,9 @@ A unified productivity hub combining:
 - Mobile (secondary): bottom nav + sidebar drawer
 
 ### Design Philosophy
-- Dark theme always on (no light mode toggle)
+- Theme: System Default / Light / Dark — user-selectable (default: Dark)
 - Purple primary color (`#800080`) — action-forward design
-- Surface dark palette (`#171717` to `#fafafa`)
+- Surface palette adapts via CSS custom properties (light: `#f0f0f0`–`#111`, dark: `#171717`–`#fafafa`)
 - Minimal UI — no clutter, task-first
 - Mobile-first responsive layout
 
@@ -198,6 +198,8 @@ type GtdContext =
 type ViewType =
   | 'inbox' | 'today' | 'upcoming' | 'project'
   | 'label' | 'habits' | 'pomodoro' | 'matrix' | 'gtd' | 'search'
+
+type ThemeMode = 'system' | 'light' | 'dark'
 ```
 
 ### Task Interface
@@ -325,6 +327,10 @@ interface AppState {
 
   // Feature settings
   pomodoroSettings: PomodoroSettings
+
+  // Theme (persisted)
+  theme: ThemeMode                 // default: 'dark'
+  setTheme: (theme: ThemeMode) => void
 
   // Auth state (not persisted to localStorage)
   userId: string | null          // Supabase user ID; null = not signed in
@@ -831,17 +837,17 @@ switch (currentView) {
 - `primary-500`: `#a020a0` (lighter purple)
 - `primary-700`: `#650065` (darker purple)
 
-**Surface (Dark grays — backgrounds):**
-- `surface-50`: `#fafafa` (near-white text)
-- `surface-100`: `#f5f5f5`
-- `surface-200`: `#e5e5e5`
-- `surface-300`: `#d4d4d4`
-- `surface-400`: `#a3a3a3`
-- `surface-500`: `#737373` (muted text)
-- `surface-600`: `#525252`
-- `surface-700`: `#404040`
-- `surface-800`: `#262626` (cards, modals)
-- `surface-900`: `#171717` (main background)
+**Surface (theme-aware via CSS custom properties):**
+All surface-N values are defined as CSS variables (`--surface-N` as RGB triplets) in `src/index.css`.
+Tailwind config uses `rgb(var(--surface-N) / <alpha-value>)` — supports opacity modifiers (`/10`, `/50`, etc.)
+
+| Token | Dark mode | Light mode |
+|-------|-----------|------------|
+| `surface-50` | `#fafafa` (near-white text) | `#111111` (near-black text) |
+| `surface-400` | `#a3a3a3` (muted) | `#737373` (muted) |
+| `surface-700` | `#2d2d2d` (hover bg) | `#e0e0e0` (hover bg) |
+| `surface-800` | `#1e1e1e` (cards/sidebar) | `#ffffff` (cards/sidebar) |
+| `surface-900` | `#171717` (main bg) | `#f0f0f0` (main bg) |
 
 ### Custom CSS (`src/index.css`)
 - `@keyframes slideUp` — modal entrance animation (0px → -10px, opacity 0→1)
@@ -854,13 +860,14 @@ switch (currentView) {
 - `safe-area-*` — CSS variables for mobile notch handling
 
 ### Design Rules
-- Background: always `surface-900` (`#171717`)
-- Cards/Modals: `surface-800` (`#262626`)
-- Borders: `surface-700` (`#404040`) — subtle
-- Body text: `surface-50` or `surface-100`
-- Muted text: `surface-400` or `surface-500`
-- Action buttons: `primary` color
-- No light mode — dark theme only
+- Background: `surface-900` (dark: `#171717`, light: `#f0f0f0`)
+- Cards/Modals/Sidebar: `surface-800` (dark: `#1e1e1e`, light: `#ffffff`)
+- Hover/Borders: `surface-700` (dark: `#2d2d2d`, light: `#e0e0e0`)
+- Body/Primary text: `text-surface-50` (dark: `#fafafa`, light: `#111111`)
+- Muted text: `text-surface-400` or `text-surface-500`
+- Action buttons: `primary` color (purple — works on both themes)
+- Theme: System / Light / Dark — toggled in sidebar footer, stored in Zustand (`theme: ThemeMode`)
+- Surface colors use CSS custom properties (RGB triplets) so opacity modifiers work (`/10`, `/50` etc.)
 - Font: system font stack (defined in tailwind config)
 
 ---
@@ -959,7 +966,7 @@ switch (currentView) {
 |----------|------|-----|
 | P2 | Add drag-to-reorder tasks within views | Better organization UX |
 | P2 | Add drag tasks between Eisenhower quadrants | Natural Matrix UX |
-| P3 | Add light mode toggle | User preference |
+| ✅ | ~~Add light mode toggle~~ | ✅ Done — System/Light/Dark selector in Sidebar footer |
 | P3 | Add analytics/insights (tasks completed per week, habit stats) | Motivation |
 | P3 | Add onboarding / empty state tips | New user UX |
 | P3 | Add keyboard navigation & shortcuts reference | Power users |
@@ -1183,6 +1190,7 @@ All changes to the application must be recorded here.
 | 2026-03-14 | 1.1.0 | AI Agent | Changed primary color from red (`#dc4c3e`) to purple (`#800080`) in `tailwind.config.js`. Updated §1 and §10 to reflect new color. Added full Supabase schema design to §6 (6 tables, RLS policies, indexes, column mapping, data-safety rules). Updated §12 Phase 5 roadmap with implementation steps. No backend code implemented — awaiting user-provided Supabase credentials. |
 | 2026-03-14 | 1.2.0 | AI Agent | Implemented Supabase cloud sync. Installed `@supabase/supabase-js@^2.99.1`. Created `src/lib/supabase.ts` (client, camelCase↔snake_case converters, fire-and-forget sync helpers, bulk migration). Created `src/components/AuthView.tsx` (email/password sign-in/sign-up). Updated `src/store/useStore.ts`: added `userId`, `isAuthLoading`, `setUserId`, `setAuthLoading`, `loadFromSupabase`, `signOut`; all CRUD actions now sync to Supabase; `partialize` excludes auth state from localStorage. Updated `src/App.tsx`: auth gate (loading spinner → AuthView → main app), session check on mount, `onAuthStateChange` listener. Updated `vite.config.ts` PWA `theme_color` to `#800080`. Created `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (gitignored). Updated §2, §6 to reflect new status. |
 | 2026-03-14 | 1.3.0 | AI Agent | Added §14 Agent Task Workflow & To-Do Checklist. Defines mandatory to-do list creation, step-by-step end-of-task checklist (git push to main, SQL schema output, customer report format). Renumbered §14→§15 (Git) and §15→§16 (Change Log). Updated TOC accordingly. No code changes — spec-only update. |
+| 2026-03-14 | 1.4.0 | AI Agent | Added theme switching: System Default / Light / Dark. Added `ThemeMode` type to `src/types/index.ts`. Added `theme: ThemeMode` + `setTheme` to Zustand store (persisted). Updated `tailwind.config.js` surface colors to use CSS custom properties (`rgb(var(--surface-N) / <alpha-value>)`) for full opacity modifier support. Updated `src/index.css` with `:root` (light) and `:root.dark` (dark) CSS variable blocks; fixed body text, scrollbar, and checkbox hover to be theme-aware. Updated `src/App.tsx` to apply `dark` class to `<html>` element and listen for `prefers-color-scheme` changes in System mode. Updated `index.html` with FOUC-prevention inline script and moved `dark` class to `<html>`. Added 3-button theme toggle (Monitor/Sun/Moon) to `Sidebar.tsx` footer. Fixed `text-white` → `text-surface-50` in `TaskItem`, `TaskEditor`, `AuthView`, `PomodoroView`, `MatrixView`, `HabitsView`, `SearchView`, `ProjectView`, `Sidebar` (on non-colored backgrounds). Updated §1, §4, §5, §10, §12 in APP_SPEC.md. |
 
 ---
 

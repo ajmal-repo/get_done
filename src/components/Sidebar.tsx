@@ -2,10 +2,10 @@ import { useStore } from '@/store/useStore'
 import {
   Inbox, CalendarDays, Calendar, Hash, Tag, Target,
   Timer, Grid3X3, ListTodo, Plus, Star, ChevronDown, ChevronRight,
-  Heart, Briefcase, User, Search, Menu
+  Heart, Briefcase, User, Search, Menu, Sun, Moon, Monitor
 } from 'lucide-react'
 import { useState } from 'react'
-import { ViewType } from '@/types'
+import { ViewType, ThemeMode } from '@/types'
 
 const iconMap: Record<string, any> = {
   user: User, briefcase: Briefcase, hash: Hash, heart: Heart, star: Star,
@@ -17,6 +17,14 @@ export function Sidebar() {
   const [labelsOpen, setLabelsOpen] = useState(true)
   const [toolsOpen, setToolsOpen] = useState(true)
   const addProject = useStore((s) => s.addProject)
+  const theme = useStore((s) => s.theme)
+  const setTheme = useStore((s) => s.setTheme)
+
+  const themeOptions: { value: ThemeMode; label: string; icon: any }[] = [
+    { value: 'system', label: 'System', icon: Monitor },
+    { value: 'light',  label: 'Light',  icon: Sun },
+    { value: 'dark',   label: 'Dark',   icon: Moon },
+  ]
 
   const navItems: { view: ViewType; icon: any; label: string }[] = [
     { view: 'inbox', icon: Inbox, label: 'Inbox' },
@@ -43,7 +51,7 @@ export function Sidebar() {
   )
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-3 pt-4">
+    <div className="flex flex-col h-full overflow-y-auto p-3 pt-4 pb-0">
       {/* Logo */}
       <div className="flex items-center gap-2 px-3 mb-4">
         <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
@@ -101,7 +109,7 @@ export function Sidebar() {
               const p = addProject({ name: 'New Project', color: '#808080' })
               setView('project', p.id)
             }}
-            className="text-surface-400 hover:text-white transition-colors"
+            className="text-surface-400 hover:text-surface-50 transition-colors"
           >
             <Plus size={16} />
           </button>
@@ -155,6 +163,28 @@ export function Sidebar() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Theme toggle — pinned to bottom */}
+      <div className="mt-auto sticky bottom-0 bg-surface-800 pt-2 pb-3 border-t border-surface-700">
+        <p className="px-3 py-1.5 text-xs font-semibold text-surface-400 uppercase tracking-wider">Theme</p>
+        <div className="flex items-center gap-1 px-3">
+          {themeOptions.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => setTheme(value)}
+              title={label}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-xs transition-colors
+                ${theme === value
+                  ? 'bg-primary-600/20 text-primary-400'
+                  : 'text-surface-400 hover:bg-surface-700 hover:text-surface-200'
+                }`}
+            >
+              <Icon size={16} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

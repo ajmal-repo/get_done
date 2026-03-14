@@ -63,7 +63,7 @@ export function AuthView() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Get Done</h1>
+          <h1 className="text-2xl font-bold text-surface-50">Get Done</h1>
           <p className="text-surface-400 text-sm mt-1">Your personal productivity hub</p>
         </div>
 
@@ -77,7 +77,7 @@ export function AuthView() {
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 mode === 'signin'
                   ? 'bg-primary-600 text-white'
-                  : 'text-surface-400 hover:text-white'
+                  : 'text-surface-400 hover:text-surface-50'
               }`}
             >
               Sign In
@@ -88,7 +88,7 @@ export function AuthView() {
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 mode === 'signup'
                   ? 'bg-primary-600 text-white'
-                  : 'text-surface-400 hover:text-white'
+                  : 'text-surface-400 hover:text-surface-50'
               }`}
             >
               Sign Up
@@ -105,7 +105,7 @@ export function AuthView() {
                 required
                 autoFocus
                 placeholder="you@example.com"
-                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-colors outline-none"
+                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm text-surface-50 placeholder-surface-500 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-colors outline-none"
               />
             </div>
             <div>
@@ -117,7 +117,7 @@ export function AuthView() {
                 required
                 minLength={6}
                 placeholder="••••••••"
-                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-surface-500 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-colors outline-none"
+                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm text-surface-50 placeholder-surface-500 focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-colors outline-none"
               />
             </div>
 
